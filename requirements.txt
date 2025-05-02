@@ -1,0 +1,9 @@
+langgraph
+langgraph-prebuilt
+langchain-core
+langchain-community
+langchain-openai
+pandas 
+langchain-groq
+chromadb
+sentence-transformers

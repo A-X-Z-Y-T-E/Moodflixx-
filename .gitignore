@@ -1,0 +1,44 @@
+# Environment variables
+.env
+.env.example
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# LangGraph API files
+.langgraph_api/
+
+# Specific files to ignore
+router.py
+simple.py
+
+# Data directories (optional, uncomment if you don't want to include data)
+# data/
+
+# Vector store (optional, uncomment if you don't want to include the vector store)
+# data/vectordb/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
