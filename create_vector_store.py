@@ -9,7 +9,7 @@ import pandas as pd
 from typing import List, Dict, Any
 from langchain_core.documents import Document
 from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_groq import ChatGroq
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -203,17 +203,17 @@ def create_movie_documents(df: pd.DataFrame) -> List[Document]:
                 "title": movie_data.get('movie_title', 'Unknown'),
                 "year": int(movie_data.get('title_year', 0)),
                 "director": movie_data.get('director_name', 'Unknown'),
-                "actors": [
+                "actors": ", ".join([
                     movie_data.get('actor_1_name', 'Unknown'),
                     movie_data.get('actor_2_name', 'Unknown'),
                     movie_data.get('actor_3_name', 'Unknown')
-                ],
-                "genres": movie_data.get('genres', '').split('|') if isinstance(movie_data.get('genres', ''), str) else [],
+                ]),
+                "genres": ", ".join(movie_data.get('genres', '').split('|') if isinstance(movie_data.get('genres', ''), str) else []),
                 "duration": int(movie_data.get('duration', 0)),
                 "language": movie_data.get('language', 'Unknown'),
                 "country": movie_data.get('country', 'Unknown'),
                 "imdb_score": float(movie_data.get('imdb_score', 0.0)),
-                "keywords": movie_data.get('plot_keywords', '').split('|') if isinstance(movie_data.get('plot_keywords', ''), str) else []
+                "keywords": ", ".join(movie_data.get('plot_keywords', '').split('|') if isinstance(movie_data.get('plot_keywords', ''), str) else [])
             }
             
             # Create the document
@@ -238,13 +238,27 @@ def create_vector_store(documents: List[Document], path: str = VECTOR_DB_PATH) -
     
     print(f"Creating vector store at {path}...")
     
+    # Manually filter complex metadata to ensure compatibility with ChromaDB
+    filtered_documents = []
+    for doc in documents:
+        # Create a new metadata dictionary with only simple types
+        filtered_metadata = {}
+        for key, value in doc.metadata.items():
+            # Only include simple types (str, int, float, bool)
+            if isinstance(value, (str, int, float, bool)):
+                filtered_metadata[key] = value
+        
+        # Create a new document with filtered metadata
+        filtered_doc = Document(page_content=doc.page_content, metadata=filtered_metadata)
+        filtered_documents.append(filtered_doc)
+    
     # Initialize the embeddings model
     # Using a smaller, free model for efficiency
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     
     # Create the vector store
     vector_store = Chroma.from_documents(
-        documents=documents,
+        documents=filtered_documents,
         embedding=embeddings,
         persist_directory=path
     )

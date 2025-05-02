@@ -14,7 +14,7 @@ htmlcov/
 venv/
 env/
 ENV/
-
+data/vectordb/
 # LangGraph API files
 .langgraph_api/
 

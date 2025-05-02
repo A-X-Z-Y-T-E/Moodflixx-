@@ -7,6 +7,10 @@ from langgraph.graph import START, END, StateGraph
 from langgraph.prebuilt import ToolNode
 import os
 from typing import TypedDict, List, Dict, Any, Optional
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Define the state schema
 class AgentState(TypedDict):
