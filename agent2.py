@@ -39,7 +39,6 @@ llm = ChatGroq(model_name="llama3-70b-8192", api_key=api_key)
 
 # Check if GPU is available and initialize embeddings model
 device = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"Using device: {device} for embeddings")
 
 # Initialize embeddings model with GPU if available
 embeddings = HuggingFaceEmbeddings(
@@ -64,7 +63,6 @@ def create_vector_db(csv_path='data/processed/processed_movies.csv'):
             with open(pickle_path, "rb") as f:
                 stored_docs = pickle.load(f)
             vectordb = FAISS.load_local(faiss_index_path, embeddings, allow_dangerous_deserialization=True)
-            print(f"Loaded existing FAISS index with {len(stored_docs)} documents")
             return vectordb
         except Exception as e:
             print(f"Error loading existing vector DB: {e}")
@@ -104,8 +102,6 @@ def create_vector_db(csv_path='data/processed/processed_movies.csv'):
             documents.append(Document(page_content=movie_text, metadata=metadata))
         except Exception as e:
             print(f"Error processing row {idx}: {e}")
-    
-    print(f"Creating FAISS index with {len(documents)} documents")
     
     # Create FAISS index
     vectordb = FAISS.from_documents(documents, embeddings)
@@ -178,20 +174,15 @@ query_analyzer_prompt = ChatPromptTemplate.from_messages([
 ])
 
 # Define the adaptive retrieval function
-def adaptive_retrieval(state: MovieRecState) -> MovieRecState:
-    print("--- Entering Adaptive Retrieval ---")
+def adaptive_retrieval(state: MovieRecState) -> Dict:
     # Get the last message from the user
     if not state["messages"]:
-        # Handle case where there are no messages
-        state["query"] = ""
-        state["retrieval_type"] = "none"
-        state["context"] = []
-        print("--- Exiting Adaptive Retrieval ---")
-        return state
-    
+        # Return empty context directly
+        return {"context": []}
+
     # Get the last message and extract content safely
     last_message = state["messages"][-1]
-    
+
     # Check if it's a dict (from API) or a BaseMessage object
     if isinstance(last_message, dict) and "content" in last_message:
         query = last_message["content"]
@@ -200,66 +191,49 @@ def adaptive_retrieval(state: MovieRecState) -> MovieRecState:
     else:
         # Fallback if we can't get content
         query = str(last_message)
-    
-    # Set the query
-    state["query"] = query
-    
+
     # Analyze the query to determine retrieval approach
     # Build the analysis chain
     analysis_chain = query_analyzer_prompt | llm | StrOutputParser()
     # Invoke the chain
     retrieval_type = analysis_chain.invoke({"query": query})
-    state["retrieval_type"] = retrieval_type.strip().lower()
-    
+    # Store retrieval_type locally, don't modify state directly yet
+    current_retrieval_type = retrieval_type.strip().lower()
+
     # Perform retrieval based on the determined approach
-    if state["retrieval_type"] == "semantic":
-        state["context"] = get_retriever().get_relevant_documents(query)
-    elif state["retrieval_type"] == "keyword":
-        state["context"] = get_compression_retriever().get_relevant_documents(query)
+    # Always use the basic retriever if retrieval is needed
+    context_update = {} # Initialize update dict
+    query_update = {"query": query} # Prepare query update
+    retrieval_type_update = {"retrieval_type": current_retrieval_type} # Prepare type update
+
+    if current_retrieval_type != "none":
+        retrieved_docs = get_retriever().get_relevant_documents(query)
+        context_update = {"context": retrieved_docs}
     else:
-        state["context"] = []
-    
-    print("--- Exiting Adaptive Retrieval ---")
-    return state
+        context_update = {"context": []}
+
+    # Return all updates this node is responsible for
+    return {**query_update, **retrieval_type_update, **context_update}
 
 # Define the web search function
-def web_search(state: MovieRecState) -> MovieRecState:
-    print("--- Entering Web Search ---")
-    # Get the last message from the user
-    if not state["messages"]:
-        # Handle case where there are no messages
-        state["query"] = ""
-        state["web_results"] = []
-        print("--- Exiting Web Search ---")
-        return state
-    
-    # Get the last message and extract content safely
-    last_message = state["messages"][-1]
-    
-    # Check if it's a dict (from API) or a BaseMessage object
-    if isinstance(last_message, dict) and "content" in last_message:
-        query = last_message["content"]
-    elif isinstance(last_message, BaseMessage):
-        query = last_message.content
-    else:
-        # Fallback if we can't get content
-        query = str(last_message)
-    
-    # Set the query
-    state["query"] = query
-    
+def web_search(state: MovieRecState) -> Dict: # Return type changed to Dict
+    # Get the query from the state (set by adaptive_retrieval)
+    query = state.get("query")
+    if not query:
+        return {"web_results": []}
+
     # Perform web search
     tavily_tool = TavilySearchResults(max_results=3)
-    state["web_results"] = tavily_tool.invoke({"query": query})
+    web_results = tavily_tool.invoke({"query": query})
     
-    print("--- Exiting Web Search ---")
-    return state
+    # Return only the updated key
+    return {"web_results": web_results}
 
 # Define the generation function
-def generate_response(state: MovieRecState) -> MovieRecState:
-    print("--- Entering Generate Response ---")
+def generate_response(state: MovieRecState) -> Dict: # Return type changed to Dict
     # Format context for the prompt
-    context_texts = [doc.page_content for doc in state.get("context", [])]
+    context_docs = state.get("context") # Get context, might be None
+    context_texts = [doc.page_content for doc in context_docs] if context_docs else [] # Check if None before iterating
     formatted_context = "\n\n".join(context_texts) if context_texts else "No relevant movie information found."
     
     # Format web results
@@ -300,11 +274,10 @@ def generate_response(state: MovieRecState) -> MovieRecState:
         "web_context": formatted_web_results,
         "question": user_question
     })
-    
-    # Update the state
-    state["response"] = response
-    print("--- Exiting Generate Response ---")
-    return state
+
+    # Return only the new message for add_messages to handle
+    # response is already a string due to StrOutputParser
+    return {"messages": [AIMessage(content=response)]}
 
 # Define the router function
 def router(state: MovieRecState) -> Literal["retrieve", "respond", "end"]:
@@ -332,14 +305,12 @@ def router(state: MovieRecState) -> Literal["retrieve", "respond", "end"]:
     return "retrieve"
 
 # Define the analyze query function
-def analyze_query(state: MovieRecState) -> MovieRecState:
+def analyze_query(state: MovieRecState) -> Dict:
     # Get the last message from the user
     if not state["messages"]:
         # Handle case where there are no messages
-        state["query"] = ""
-        state["retrieval_type"] = "none"
-        return state
-    
+        return {"query": "", "retrieval_type": "none"}
+
     # Get the last message and extract content safely
     last_message = state["messages"][-1]
     
@@ -353,16 +324,16 @@ def analyze_query(state: MovieRecState) -> MovieRecState:
         query = str(last_message)
     
     # Set the query
-    state["query"] = query
+    query_update = {"query": query}
     
     # Analyze the query to determine retrieval approach
     # Build the analysis chain
     analysis_chain = query_analyzer_prompt | llm | StrOutputParser()
     # Invoke the chain
     retrieval_type = analysis_chain.invoke({"query": query})
-    state["retrieval_type"] = retrieval_type.strip().lower()
+    retrieval_type_update = {"retrieval_type": retrieval_type.strip().lower()}
     
-    return state
+    return {**query_update, **retrieval_type_update}
 
 # Create the graph
 def build_graph():
@@ -394,7 +365,6 @@ try:
     graph_image = graph.get_graph().draw_mermaid_png() 
     with open("workflow_graph.png", "wb") as f:
         f.write(graph_image)
-    print("Workflow graph (Mermaid PNG) saved to workflow_graph.png")
 except Exception as e:
     print(f"An error occurred while saving the graph: {e}")
 
@@ -410,16 +380,9 @@ if __name__ == "__main__":
         "web_results": []
     }
     
-    print(f"User: {state['messages'][0].content}\n")
-    
     # Process request
     state = graph.invoke(state)
     
     # Print response
     if state["messages"] and isinstance(state["messages"][-1], AIMessage):
-        print(f"Assistant: {state['messages'][-1].content}\n")
-        
-    # Print retrieval info
-    print(f"Retrieval type used: {state['retrieval_type']}")
-    print(f"Number of context documents: {len(state['context']) if state['context'] else 0}")
-    print(f"Number of web results: {len(state['web_results']) if state['web_results'] else 0}")
+        print(f"Assistant: {state['messages'][-1].content}")
