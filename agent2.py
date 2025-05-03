@@ -362,22 +362,9 @@ def build_graph():
 # This needs to be a concrete graph instance, not a function
 graph = build_graph()
 
-try:
-    # Use draw_mermaid_png() instead of draw_png()
-    graph_image = graph.get_graph().draw_mermaid_png() 
-    with open("workflow_graph.png", "wb") as f:
-        f.write(graph_image)
-except Exception as e:
-    print(f"An error occurred while saving the graph: {e}")
-
 # For testing purposes
 if __name__ == "__main__":
     # Get user input
-    print("Ask me about movies! Here are some examples:")
-    print("- Recommend some sci-fi movies from the 90s")
-    print("- Movies directed by Christopher Nolan")
-    print("- Funny action movies")
-    print("- Movies similar to Inception")
     user_query = input("\nEnter your movie query: ")
 
     # Initialize state with user message
