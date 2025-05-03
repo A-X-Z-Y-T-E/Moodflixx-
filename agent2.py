@@ -21,6 +21,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_groq import ChatGroq
+import time
 
 load_dotenv()
 
@@ -207,7 +208,8 @@ def adaptive_retrieval(state: MovieRecState) -> Dict:
     retrieval_type_update = {"retrieval_type": current_retrieval_type} # Prepare type update
 
     if current_retrieval_type != "none":
-        retrieved_docs = get_retriever().get_relevant_documents(query)
+        # Use invoke instead of get_relevant_documents
+        retrieved_docs = get_retriever().invoke(query)
         context_update = {"context": retrieved_docs}
     else:
         context_update = {"context": []}
@@ -370,9 +372,17 @@ except Exception as e:
 
 # For testing purposes
 if __name__ == "__main__":
-    # Initialize state with a test message
+    # Get user input
+    print("Ask me about movies! Here are some examples:")
+    print("- Recommend some sci-fi movies from the 90s")
+    print("- Movies directed by Christopher Nolan")
+    print("- Funny action movies")
+    print("- Movies similar to Inception")
+    user_query = input("\nEnter your movie query: ")
+
+    # Initialize state with user message
     state: MovieRecState = {
-        "messages": [HumanMessage(content="I'm looking for action movies with high ratings")],
+        "messages": [HumanMessage(content=user_query)],
         "context": None,
         "query": None,
         "response": None,
@@ -381,8 +391,13 @@ if __name__ == "__main__":
     }
     
     # Process request
+    start_time = time.time()
     state = graph.invoke(state)
+    end_time = time.time()
+    duration = end_time - start_time
     
     # Print response
     if state["messages"] and isinstance(state["messages"][-1], AIMessage):
         print(f"Assistant: {state['messages'][-1].content}")
+    
+    print(f"\n--- Execution Time: {duration:.2f} seconds ---")
