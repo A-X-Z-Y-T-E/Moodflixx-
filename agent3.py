@@ -398,6 +398,8 @@ def analyze_initial_input(state: MovieRecState) -> Dict:
     # Return the detected preferences
     return preference_updates
 
+FIRST_MOOD_QUESTION = "What mood are you in for a movie today?"
+
 RESPONSE_GENERATOR_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
@@ -409,28 +411,31 @@ Your goal is to gather MOOD, GENRE, SUBGENRE, LENGTH, DIRECTORS, and ACTORS pref
 1. **Analyze State:** Look at what preferences are already collected: `collected_mood`, `collected_genre`, `collected_subgenre`, `collected_length`, `collected_directors`, `collected_actors`.
 
 2. **Determine Next Question:**
-    - If `collected_mood` is 'Missing': Ask "What kind of mood are you in for a movie?"
-    - Else if `collected_genre` is 'Missing': Ask about genre and recommend based on mood.
-    - Else if `collected_subgenre` is 'Missing': Ask about subgenre and recommend based on mood + genre.
-    - Else if `collected_length` is 'Missing': Ask about length and recommend based on mood + genre + subgenre.
-    - Else if `collected_directors` is 'Missing': Ask about directors and recommend based on previous preferences.
-    - Else if `collected_actors` is 'Missing': Ask about actors and recommend based on previous preferences.
+    - If `collected_mood` is 'Missing': Ask the standardized mood question.
+    - Else if `collected_genre` is 'Missing': Ask the standardized genre question.
+    - Else if `collected_subgenre` is 'Missing': Ask the standardized subgenre question.
+    - Else if `collected_length` is 'Missing': Ask about length.
+    - Else if `collected_directors` is 'Missing': Ask about directors.
+    - Else if `collected_actors` is 'Missing': Ask about actors.
     - Else: Provide final recommendations based on all collected preferences.
 
 **Guidelines for Each Step:**
-- Use the preferences you have to provide 3-5 tailored movie recommendations before asking the next question
+- Use the preferences you have to provide 7-10 tailored movie recommendations before asking the next question
 - For each movie, include TITLE, IMDb RATING (when available), and a BRIEF (1-2 sentence) justification
 - Sort recommendations by IMDb rating when available
 - Format recommendations clearly (e.g., using bullet points)
 - When multiple preferences are collected at once, acknowledge them and move to the next missing preference
 
-**Specific Questions to Ask:**
-- For mood (if missing): "Hello! To recommend the perfect movie, what kind of mood are you in for a movie?"
-- For genre (if mood collected): "Great! Now, what genre are you thinking of for a {collected_mood} movie?"
-- For subgenre (if genre collected): "Great choices! Can you specify any subgenre within {collected_genre} that you particularly enjoy?"
-- For length (if subgenre collected): "Do you prefer any specific length for your {collected_mood} {collected_genre} {collected_subgenre} movie?"
-- For directors (if length collected): "Are there any specific directors whose work you would like to see in your {collected_mood} {collected_genre} {collected_subgenre} movie?"
-- For actors (if directors collected): "Finally, are there any specific actors you wish to see in your movie?"
+**IMPORTANT: Use these EXACT standardized questions:**
+- For mood (if missing): "What mood are you in for a movie today?"
+- For genre (if mood collected): "What genre would you like to watch?"
+- For subgenre (if genre collected): "Do you have a specific subgenre preference?"
+- For length (if subgenre collected): "Do you prefer short, medium, or long movies?"
+- For directors (if length collected): "Are there any specific directors whose work you would like to see?"
+- For actors (if directors collected): "Are there any specific actors you wish to see in your movie?"
+
+**DO NOT alter these questions or include previously collected preferences in the questions.** 
+Always ask the exact standardized questions as specified above.
 
 **Input Context:**
 - `messages`: Full conversation history.
@@ -467,6 +472,7 @@ def generate_response(state: MovieRecState) -> Dict:
     # Parse user preferences from conversation
     preference_updates = parse_user_preferences(state)
     
+
     # Get conversation history and current collected state (including any updates)
     messages = state['messages']
     collected_mood = preference_updates.get("collected_mood", state.get("collected_mood"))
@@ -503,8 +509,6 @@ def generate_response(state: MovieRecState) -> Dict:
     return {"messages": [AIMessage(content=response_text)], **preference_updates}
 
 # --- Graph Nodes: Additional Nodes for Guided Start ---
-
-FIRST_MOOD_QUESTION = "Hello! To recommend the perfect movie, what kind of mood are you in for a movie?"
 
 def check_conversation_start(state: MovieRecState) -> Dict[str, str]:
     """Checks if this is the first user message and returns the next step key."""
