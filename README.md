@@ -147,11 +147,37 @@ python agent3.py
 
 ## 🔍 How It Works
 
-1. **Query Analysis**: Determines whether your request needs semantic search, keyword search, or conversation
-2. **Preference Collection**: Gathers mood, genre, subgenre, and other preferences
-3. **Knowledge Retrieval**: Searches internal movie database and external web sources
-4. **Response Generation**: Creates personalized recommendations based on preferences
-5. **Structured Output**: Returns both conversation text and structured movie data
+<div align="center">
+  <img src="workflow_graph.png" alt="MoodFlixx Conversation Workflow Graph" width="80%">
+</div>
+
+### Conversation Flow Graph Explained
+
+The LangGraph conversation workflow orchestrates the movie recommendation process through several key stages:
+
+1. **Initial Query Analysis** - When a user first interacts with the system, it:
+   - Analyzes whether any preferences are already mentioned
+   - Either asks for the user's mood or proceeds to recommendation generation
+
+2. **Progressive Preference Collection** - The system follows a carefully designed conversation flow:
+   - 🎭 **Mood Collection** - "What mood are you in for a movie today?"
+   - 🎬 **Genre Collection** - "What genre would you like to watch?"
+   - 📊 **Subgenre Refinement** - "Do you have a specific subgenre preference?"
+   - ⏱️ **Length Preference** - "Do you prefer short, medium, or long movies?"
+   - 📚 **Similar Movies** - "Are there any movies you've enjoyed that you'd like to see something similar to?"
+   - 🌟 **Actor Preferences** - "Are there any specific actors you wish to see in your movie?"
+
+3. **Knowledge Retrieval and Processing**:
+   - **Semantic or Keyword Search** - The system dynamically determines whether to perform semantic similarity search or keyword-based retrieval
+   - **External Information Integration** - Supplements internal movie database with web search results
+   - **Content Enhancement** - Combines multiple knowledge sources for comprehensive recommendations
+
+4. **Response Generation** - For each step, the system:
+   - Provides relevant movie recommendations based on preferences collected so far
+   - Formats results with titles, ratings, and brief descriptions
+   - Clearly separates the introduction text, movie list, and next question
+
+This directed graph architecture enables the system to maintain context throughout the conversation while adapting to user inputs and progressively refining recommendations.
 
 ## 📊 Project Structure
 
