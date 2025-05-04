@@ -1,59 +1,175 @@
-# Mood-Based Movie Recommendation System
+<div align="center">
+  <h1>🎬 MoodFlixx - AI Movie Recommendation System</h1>
+  <p><i>Discover your next favorite movie through the power of conversation</i></p>
+  
+  <p>
+    <img src="https://img.shields.io/badge/LangChain-0.1.0-green" alt="LangChain">
+    <img src="https://img.shields.io/badge/LangGraph-0.0.26-blue" alt="LangGraph">
+    <img src="https://img.shields.io/badge/LLM-Llama3--70B-purple" alt="Llama3">
+    <img src="https://img.shields.io/badge/License-MIT-yellow" alt="License">
+  </p>
+</div>
 
-A LangGraph-powered system that analyzes user input to determine mood and preferences, then recommends movies based on those factors using vector search.
+---
 
-## Features
+## ✨ Features
 
-- **Mood Classification**: Analyzes user input to determine emotional state and genre preferences
-- **Entertainment Preference Analysis**: Extracts or infers favorite actors, movies, genres, and languages
-- **Personalized Reflection Prompts**: Generates thoughtful prompts for users to reflect on their feelings
-- **Vector-Based Movie Recommendations**: Uses ChromaDB and embeddings to find relevant movies
-- **Movie Mood Analysis**: Determines the mood of movies based on genres and keywords
+- 🗣️ **Conversational AI Recommendations**: Ask for movies in natural language and get personalized suggestions
+- 🎭 **Mood-Based Matching**: Our AI understands your mood and recommends movies that fit your current vibe
+- 🔍 **Progressive Preference Discovery**: The system asks meaningful questions to better understand your taste
+- 📱 **Netflix-Style UI**: Familiar browsing interface with beautiful movie cards
+- 🎤 **Multi-Modal Input**: Type queries or use voice input for hands-free interaction
+- 📊 **Structured Movie Data**: Returns detailed information including ratings, years, and descriptions
 
-## Project Structure
+## 💬 Example Conversations
 
-- `agent.py`: Main agent workflow using LangGraph for mood analysis and recommendation
-- `data_preprocess.py`: Processes and cleans the IMDB 5000 movie dataset
-- `create_vector_store.py`: Creates a vector store from processed movie data with mood analysis
-- `demo_messages.py`: Sample messages for testing the system
+> "I'm feeling sad today, can you recommend something uplifting?"
+>
+> "Show me sci-fi movies with time travel concepts"
+> 
+> "I loved Inception and Interstellar - what else might I enjoy?"
 
-## Setup Instructions
+## 🚀 Technical Architecture
 
-1. Clone this repository
-2. Install dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-3. Create a `.env` file with your API keys:
-   ```
-   GROQ_API_KEY = "your_groq_api_key"
-   ```
-4. Download the IMDB 5000 movie dataset and process it:
-   ```
-   python data_preprocess.py
-   ```
-5. Create the vector store:
-   ```
-   python create_vector_store.py
-   ```
-6. Run the agent:
-   ```
-   python agent.py
-   ```
+<table>
+<tr>
+<td width="50%">
 
-## How It Works
+### 🧠 Backend Components
 
-1. User provides input about their mood, preferences, or movie interests
-2. The system analyzes the input to determine mood, genre preferences, and other factors
-3. Based on this analysis, it searches the vector store for relevant movies
-4. The system returns personalized recommendations with explanations of why each movie matches the user's preferences
-5. The user is prompted to reflect on their feelings, creating a more engaging experience
+- 🧩 **LangGraph Conversation Flow**: Dynamic preference-gathering conversation with branching paths
+- 🔍 **Vector Database**: FAISS for semantic similarity search across thousands of movies
+- 📚 **RAG System**: Combines movie database with web search for comprehensive knowledge
+- 🔎 **Web Search**: Tavily API integration for supplemental movie information
+- 🤖 **LLM Integration**: Powered by Groq's Llama-3 70B model for natural conversations
 
-## Technologies Used
+</td>
+<td width="50%">
 
-- LangGraph for workflow orchestration
-- LangChain for LLM integration
-- Groq for fast LLM inference
-- ChromaDB for vector storage
-- HuggingFace Sentence Transformers for embeddings
-- Pandas for data processing
+### 🎨 Frontend Components
+
+- 📱 **Responsive UI**: Adapts beautifully to any device size
+- 💬 **Real-Time Chat Widget**: Interactive chatbot with message history
+- 🎤 **Voice Input Support**: Speech recognition for hands-free interaction
+- 🎞️ **Movie Card Display**: Visual browsing experience with rich metadata
+- 🌐 **Progressive Web App**: Works across all modern browsers
+
+</td>
+</tr>
+</table>
+
+## 📋 API Endpoints
+
+### `/chat` Endpoint
+
+<details>
+<summary>View Request/Response Format (Click to expand)</summary>
+
+**Request format:**
+```json
+{
+  "query": "Recommend me some sci-fi movies with time travel",
+  "thread_id": "user-123"
+}
+```
+
+**Response format:**
+```json
+{
+  "response": "Based on your interest in sci-fi time travel movies, here are some recommendations",
+  "movies": [
+    {
+      "title": "Interstellar",
+      "imdb_rating": 8.6,
+      "year": 2014,
+      "description": "A team of explorers travel through a wormhole in space in an attempt to ensure humanity's survival.",
+      "runtime": 169
+    },
+    ...
+  ],
+  "next_question": "What other movie elements are you interested in?"
+}
+```
+</details>
+
+## 🛠️ Setup and Usage
+
+### Detailed Installation Guide
+
+<details>
+<summary>🔽 Install with pip (Click to expand)</summary>
+
+#### 1. Clone the Repository
+```bash
+git clone https://github.com/A-X-Z-Y-T-E/Moodflixx-.git
+cd Moodflixx-
+```
+
+#### 2. Set Up Python Environment
+We recommend using a virtual environment to avoid dependency conflicts:
+
+**Using venv (Python's built-in virtual environment)**:
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# On Windows
+venv\Scripts\activate
+# On macOS/Linux
+source venv/bin/activate
+```
+
+#### 3. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+#### 4. Set Up API Keys
+Create a `.env` file in the project root directory with the following content:
+```bash
+GROQ_API_KEY=your_groq_api_key
+TAVILY_API_KEY=your_tavily_api_key
+```
+
+#### 5. Run the Application
+```bash
+python agent3.py
+```
+
+</details>
+
+### Using the Chat Interface
+
+- Type your movie preferences or questions in the chat box
+- Click the microphone icon for voice input
+- Browse movie recommendations in the UI
+
+## 🔍 How It Works
+
+1. **Query Analysis**: Determines whether your request needs semantic search, keyword search, or conversation
+2. **Preference Collection**: Gathers mood, genre, subgenre, and other preferences
+3. **Knowledge Retrieval**: Searches internal movie database and external web sources
+4. **Response Generation**: Creates personalized recommendations based on preferences
+5. **Structured Output**: Returns both conversation text and structured movie data
+
+## 📊 Project Structure
+
+- `agent3.py` - Main LangGraph application with FastAPI server
+
+- Data files:
+  - Vector database: `faiss_index/`
+  - Document store: `documents.pkl`
+  - Movie CSV: `data/processed/processed_movies.csv`
+
+## 🔮 Future Enhancements
+
+- User accounts and preference history
+- Recommendations based on watch history
+- Movie trailer integration
+- More detailed filtering options
+- Direct streaming links
+
+## 📝 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
