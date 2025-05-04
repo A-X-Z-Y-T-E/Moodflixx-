@@ -1,6 +1,18 @@
-# Environment variables
-.env
-.env.example
+# Ignore everything
+*
+
+# But not these files...
+!.gitignore
+!README.md
+!requirements.txt
+!agent3.py
+
+# ...and not these directories/files
+!data/
+!data/**
+!faiss_index/
+!faiss_index/**
+!documents.pkl
 
 # Python cache files
 __pycache__/
@@ -15,18 +27,17 @@ venv/
 env/
 ENV/
 data/vectordb/
+# Environment variables
+.env
+.env.example
+
 # LangGraph API files
 .langgraph_api/
 
 # Specific files to ignore
-router.py
-simple.py
-
-# Data directories (optional, uncomment if you don't want to include data)
-# data/
-
-# Vector store (optional, uncomment if you don't want to include the vector store)
-# data/vectordb/
+agent.py
+agent2.py
+api_client.py
 
 # IDE files
 .vscode/
