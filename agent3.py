@@ -30,6 +30,12 @@ class MovieRecState(TypedDict):
     response: Optional[str]
     retrieval_type: str 
     web_results: Optional[List[Dict[str, Any]]]
+    collected_mood: Optional[str]
+    collected_genre: Optional[str]
+    collected_subgenre: Optional[str]
+    collected_length: Optional[str]
+    collected_directors: Optional[str]  # Added this field for directors
+    collected_actors: Optional[str]     # Added this field for actors
 
 class ChatRequest(PydanticBaseModel):
     query: str
@@ -185,23 +191,277 @@ def web_search(state: MovieRecState) -> Dict:
     
     return {"web_results": web_results}
 
+def parse_user_preferences(state: MovieRecState) -> Dict:
+    """
+    Parse user messages to extract and update preferences from any message,
+    not just in response to specific questions.
+    """
+    messages = state['messages']
+    
+    # Get current state values with defaults
+    collected_mood = state.get("collected_mood")
+    collected_genre = state.get("collected_genre") 
+    collected_subgenre = state.get("collected_subgenre")
+    collected_length = state.get("collected_length")
+    collected_directors = state.get("collected_directors")
+    collected_actors = state.get("collected_actors")
+    
+    # Only process if we have at least one message with user input
+    if not messages or not isinstance(messages[-1], HumanMessage):
+        return {}
+    
+    # Get the latest user message and our previous message if exists
+    latest_user_msg = messages[-1].content
+    prev_ai_msg = ""
+    
+    # Find the most recent AI message if it exists
+    for msg in reversed(messages[:-1]):
+        if isinstance(msg, AIMessage):
+            prev_ai_msg = msg.content.lower()
+            break
+    
+    updates = {}
+    
+    # Enhanced batch preference parser - looks for all preferences at once
+    batch_parse_prompt = ChatPromptTemplate.from_messages([
+        ("system", """You are a preference parser specialized in movie recommendations.
+        Analyze the user's message and extract ALL preferences mentioned for watching movies.
+        Format your response as a valid JSON object with ONLY these keys: "mood", "genre", "subgenre", "length", "directors", "actors".
+        Use null for any preference not found in the message.
+        Example response: {"mood": "relaxing", "genre": "comedy", "subgenre": null, "length": "short", "directors": null, "actors": null}
+        """),
+        ("human", """User message: {user_msg}
+        Previous assistant message (if any): {prev_ai_msg}
+        
+        Extract ALL movie preferences from this message. Return ONLY the JSON object.
+        """)
+    ])
+    
+    # If this is the first turn or if the message seems to contain multiple preferences,
+    # use the batch parser to try to extract everything at once
+    if len(messages) <= 2 or len(latest_user_msg.split()) > 15:
+        try:
+            batch_parse_chain = batch_parse_prompt | llm | StrOutputParser()
+            json_response = batch_parse_chain.invoke({
+                "user_msg": latest_user_msg,
+                "prev_ai_msg": prev_ai_msg
+            })
+            
+            try:
+                parsed_prefs = json.loads(json_response)
+                print(f"Batch parsed preferences: {parsed_prefs}")
+                
+                # Only update preferences that aren't already set
+                if not collected_mood and parsed_prefs.get("mood"):
+                    updates["collected_mood"] = parsed_prefs["mood"]
+                    print(f"Updated mood from batch parser: {parsed_prefs['mood']}")
+                    
+                if not collected_genre and parsed_prefs.get("genre"):
+                    updates["collected_genre"] = parsed_prefs["genre"]
+                    print(f"Updated genre from batch parser: {parsed_prefs['genre']}")
+                    
+                if not collected_subgenre and parsed_prefs.get("subgenre"):
+                    updates["collected_subgenre"] = parsed_prefs["subgenre"]
+                    print(f"Updated subgenre from batch parser: {parsed_prefs['subgenre']}")
+                    
+                if not collected_length and parsed_prefs.get("length"):
+                    updates["collected_length"] = parsed_prefs["length"]
+                    print(f"Updated length from batch parser: {parsed_prefs['length']}")
+                    
+                if not collected_directors and parsed_prefs.get("directors"):
+                    updates["collected_directors"] = parsed_prefs["directors"]
+                    print(f"Updated directors from batch parser: {parsed_prefs['directors']}")
+                    
+                if not collected_actors and parsed_prefs.get("actors"):
+                    updates["collected_actors"] = parsed_prefs["actors"]
+                    print(f"Updated actors from batch parser: {parsed_prefs['actors']}")
+                
+            except json.JSONDecodeError:
+                print("Failed to parse JSON response from batch parser")
+                
+        except Exception as e:
+            print(f"Error in batch preference parsing: {e}")
+    
+    # Use the targeted parser as a fallback for specific preference questions
+    if not updates:
+        parse_prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are a preference parser. Extract user preferences from their message based on context.
+            Respond ONLY with the extracted value or "null" if not found.
+            Do not include any explanation or additional text."""),
+            ("human", """Previous AI Message: {prev_ai_msg}
+            User Message: {user_msg}
+            Looking for: {looking_for}
+            
+            Extract ONLY the user's {looking_for} preference. Respond with just that value or "null".
+            """)
+        ])
+        
+        parse_chain = parse_prompt | llm | StrOutputParser()
+        
+        # Based on current state, determine what to parse
+        try:
+            # First collect mood if not present
+            if not collected_mood:
+                if "mood" in prev_ai_msg or len(messages) <= 2:
+                    mood = parse_chain.invoke({
+                        "prev_ai_msg": prev_ai_msg,
+                        "user_msg": latest_user_msg,
+                        "looking_for": "mood"
+                    }).strip()
+                    
+                    if mood.lower() != "null":
+                        updates["collected_mood"] = mood
+                        print(f"Parsed mood: {mood}")
+                        
+            # Then collect genre if mood is present but genre isn't
+            elif not collected_genre:
+                if "genre" in prev_ai_msg or len(messages) <= 2:
+                    genre = parse_chain.invoke({
+                        "prev_ai_msg": prev_ai_msg,
+                        "user_msg": latest_user_msg,
+                        "looking_for": "genre"
+                    }).strip()
+                    
+                    if genre.lower() != "null":
+                        updates["collected_genre"] = genre
+                        print(f"Parsed genre: {genre}")
+            
+            # Then collect subgenre if mood and genre are present but subgenre isn't            
+            elif not collected_subgenre:
+                if "subgenre" in prev_ai_msg or len(messages) <= 2:
+                    subgenre = parse_chain.invoke({
+                        "prev_ai_msg": prev_ai_msg,
+                        "user_msg": latest_user_msg,
+                        "looking_for": "subgenre"
+                    }).strip()
+                    
+                    if subgenre.lower() != "null":
+                        updates["collected_subgenre"] = subgenre
+                        print(f"Parsed subgenre: {subgenre}")
+                        
+            # Collect length if mood, genre, and subgenre are present
+            elif not collected_length:
+                if "length" in prev_ai_msg or len(messages) <= 2:
+                    length = parse_chain.invoke({
+                        "prev_ai_msg": prev_ai_msg,
+                        "user_msg": latest_user_msg,
+                        "looking_for": "length"
+                    }).strip()
+                    
+                    if length.lower() != "null":
+                        updates["collected_length"] = length
+                        print(f"Parsed length: {length}")
+            
+            # Collect directors if previous preferences are present but directors aren't
+            elif not collected_directors:
+                if "director" in prev_ai_msg or len(messages) <= 2:
+                    directors = parse_chain.invoke({
+                        "prev_ai_msg": prev_ai_msg,
+                        "user_msg": latest_user_msg,
+                        "looking_for": "directors"
+                    }).strip()
+                    
+                    if directors.lower() != "null":
+                        updates["collected_directors"] = directors
+                        print(f"Parsed directors: {directors}")
+                        
+            # Finally collect actors if all other preferences are present
+            elif not collected_actors:
+                if "actor" in prev_ai_msg or len(messages) <= 2:
+                    actors = parse_chain.invoke({
+                        "prev_ai_msg": prev_ai_msg,
+                        "user_msg": latest_user_msg,
+                        "looking_for": "actors"
+                    }).strip()
+                    
+                    if actors.lower() != "null":
+                        updates["collected_actors"] = actors
+                        print(f"Parsed actors: {actors}")
+        except Exception as e:
+            print(f"Error parsing user preferences: {e}")
+    
+    return updates
+
+def analyze_initial_input(state: MovieRecState) -> Dict:
+    """
+    Process the initial user input to extract any preferences mentioned upfront.
+    This allows the system to skip steps when preferences are already specified.
+    """
+    if not state["messages"] or not isinstance(state["messages"][-1], HumanMessage):
+        return {}
+    
+    # Get preferences from the first user message
+    preference_updates = parse_user_preferences(state)
+    
+    print(f"Initial preference analysis: {preference_updates}")
+    
+    # Return the detected preferences
+    return preference_updates
+
+FIRST_MOOD_QUESTION = "What mood are you in for a movie today?"
+
 RESPONSE_GENERATOR_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are a helpful and knowledgeable movie recommendation assistant. Use the provided context from our internal database and external web search results to answer the user's query."
-            "Prioritize information from the internal database (context) if available and relevant. Supplement with web search results for broader information, recent movies, or details not in the database."
-            "If the query is conversational (e.g., 'hello'), respond naturally."
-            "Combine the information thoughtfully. If context and web results conflict, state that or prioritize based on likely user intent (e.g., prefer database plot summaries but web results for recent ratings)."
-            "Always be friendly and aim to provide 3-5 relevant movie recommendations unless the user asks for a different number."
-            "Format your response clearly."
-            "Context from internal database:\n{context}\n\nWeb Search Results:\n{web_results}"
+            """You are a conversational movie recommendation assistant that adapts to the user's preferences.
+Your goal is to gather MOOD, GENRE, SUBGENRE, LENGTH, DIRECTORS, and ACTORS preferences, but you should skip asking for any preferences that are already collected.
+
+**Dynamic Conversation Flow:**
+1. **Analyze State:** Look at what preferences are already collected: `collected_mood`, `collected_genre`, `collected_subgenre`, `collected_length`, `collected_directors`, `collected_actors`.
+
+2. **Determine Next Question:**
+    - If `collected_mood` is 'Missing': Ask the standardized mood question.
+    - Else if `collected_genre` is 'Missing': Ask the standardized genre question.
+    - Else if `collected_subgenre` is 'Missing': Ask the standardized subgenre question.
+    - Else if `collected_length` is 'Missing': Ask about length.
+    - Else if `collected_directors` is 'Missing': Ask about directors.
+    - Else if `collected_actors` is 'Missing': Ask about actors.
+    - Else: Provide final recommendations based on all collected preferences.
+
+**Guidelines for Each Step:**
+- Use the preferences you have to provide 7-10 tailored movie recommendations before asking the next question
+- For each movie, include TITLE, IMDb RATING (when available), and a BRIEF (1-2 sentence) justification
+- Sort recommendations by IMDb rating when available
+- Format recommendations clearly (e.g., using bullet points)
+- When multiple preferences are collected at once, acknowledge them and move to the next missing preference
+
+**IMPORTANT: Use these EXACT standardized questions:**
+- For mood (if missing): "What mood are you in for a movie today?"
+- For genre (if mood collected): "What genre would you like to watch?"
+- For subgenre (if genre collected): "Do you have a specific subgenre preference?"
+- For length (if subgenre collected): "Do you prefer short, medium, or long movies?"
+- For directors (if length collected): "Are there any specific directors whose work you would like to see?"
+- For actors (if directors collected): "Are there any specific actors you wish to see in your movie?"
+
+**DO NOT alter these questions or include previously collected preferences in the questions.** 
+Always ask the exact standardized questions as specified above.
+
+**Input Context:**
+- `messages`: Full conversation history.
+- `collected_mood`, `collected_genre`, `collected_subgenre`, `collected_length`, `collected_directors`, `collected_actors`: Preferences gathered so far.
+- `{{context}}`: Database results based on latest query/topic.
+- `{{web_results}}`: Web results based on latest query/topic.
+
+--- START OF TURN INFO ---
+Collected Mood: {collected_mood}
+Collected Genre: {collected_genre}
+Collected Subgenre: {collected_subgenre}
+Collected Length: {collected_length}
+Collected Directors: {collected_directors}
+Collected Actors: {collected_actors}
+Context from internal database (based on latest query/topic):
+{{context}}
+
+Web Search Results (based on latest query/topic):
+{{web_results}}"""
         ),
-        MessagesPlaceholder(variable_name="messages"), 
+        MessagesPlaceholder(variable_name="messages"),
     ]
 )
 
 def generate_response(state: MovieRecState) -> Dict:
+    # Get context and web results, handle None cases
     context_docs = state.get("context", [])
     context_texts = [doc.page_content for doc in context_docs]
     formatted_context = "\n---\n".join(context_texts) if context_texts else "No internal context found."
@@ -209,31 +469,101 @@ def generate_response(state: MovieRecState) -> Dict:
     web_search_results = state.get("web_results", [])
     formatted_web_results = "\n---\n".join([json.dumps(res) for res in web_search_results]) if web_search_results else "No web search results found."
 
-    messages = state['messages']
+    # Parse user preferences from conversation
+    preference_updates = parse_user_preferences(state)
     
+
+    # Get conversation history and current collected state (including any updates)
+    messages = state['messages']
+    collected_mood = preference_updates.get("collected_mood", state.get("collected_mood"))
+    collected_genre = preference_updates.get("collected_genre", state.get("collected_genre"))
+    collected_subgenre = preference_updates.get("collected_subgenre", state.get("collected_subgenre"))
+    collected_length = preference_updates.get("collected_length", state.get("collected_length"))
+    collected_directors = preference_updates.get("collected_directors", state.get("collected_directors"))  # Added directors
+    collected_actors = preference_updates.get("collected_actors", state.get("collected_actors"))          # Added actors
+
+    # Create the chain for generation
     chain = RESPONSE_GENERATOR_PROMPT | llm | StrOutputParser()
     
+    response_text = "Sorry, I encountered an error while generating the response."
+    
     try:
-        response = chain.invoke({
+        # Invoke the chain, passing current state info
+        response_text = chain.invoke({
             "context": formatted_context,
             "web_results": formatted_web_results,
-            "messages": messages 
+            "messages": messages, # Pass the history
+            "collected_mood": collected_mood if collected_mood else "Missing",
+            "collected_genre": collected_genre if collected_genre else "Missing",
+            "collected_subgenre": collected_subgenre if collected_subgenre else "Missing",
+            "collected_length": collected_length if collected_length else "Missing",
+            "collected_directors": collected_directors if collected_directors else "Missing",  # Added directors
+            "collected_actors": collected_actors if collected_actors else "Missing",          # Added actors
         })
+
     except Exception as e:
         print(f"Error during response generation: {e}")
-        response = "Sorry, I encountered an error while generating the response."
+        # Use default error message
         
-    return {"messages": [AIMessage(content=response)]}
+    # Return the new AI message and any preference updates
+    return {"messages": [AIMessage(content=response_text)], **preference_updates}
 
+# --- Graph Nodes: Additional Nodes for Guided Start ---
+
+def check_conversation_start(state: MovieRecState) -> Dict[str, str]:
+    """Checks if this is the first user message and returns the next step key."""
+    # The input to the graph is the user's query, making the history length 1 initially.
+    if len(state['messages']) == 1:
+        print("-- First turn, asking for mood.")
+        return {"next_step": "ask_mood"}
+    else:
+        print("-- Continuing conversation, analyzing query.")
+        return {"next_step": "analyze"}
+
+def ask_mood_question(state: MovieRecState) -> Dict:
+    """Returns the hardcoded first question asking for the user's mood."""
+    return {"messages": [AIMessage(content=FIRST_MOOD_QUESTION)]}
+
+# --- Graph Building with Dynamic Preference Handling ---
 def build_graph():
     workflow = StateGraph(MovieRecState)
     
+    # Add nodes
+    workflow.add_node("check_start", check_conversation_start)
+    workflow.add_node("ask_mood_initial", ask_mood_question)
+    workflow.add_node("analyze_initial_input", analyze_initial_input)  # New node for initial preference detection
     workflow.add_node("analyze_query", analyze_query)
     workflow.add_node("adaptive_retrieval", adaptive_retrieval)
     workflow.add_node("web_search", web_search)
     workflow.add_node("generate_response", generate_response)
+
+    # Set entry point
+    workflow.set_entry_point("check_start")
+
+    # Define conditional edges from the start check
+    workflow.add_conditional_edges(
+        "check_start",
+        lambda state: state["next_step"],
+        {
+            "ask_mood": "analyze_initial_input",  # First check for initial preferences
+            "analyze": "analyze_query",
+        }
+    )
     
-    workflow.set_entry_point("analyze_query")
+    # After analyzing initial input, decide whether to ask for mood or proceed with response
+    workflow.add_conditional_edges(
+        "analyze_initial_input",
+        lambda state: "generate_response" if state.get("collected_mood") else "ask_mood_initial",
+        {
+            "ask_mood_initial": "ask_mood_initial",
+            "generate_response": "adaptive_retrieval",  # Skip mood question if already detected
+        }
+    )
+
+    # Edge for the hardcoded mood question path
+    workflow.add_edge("ask_mood_initial", END)
+
+    # Define edges for the main conversational flow
     workflow.add_edge("analyze_query", "adaptive_retrieval")
     workflow.add_edge("adaptive_retrieval", "web_search")
     workflow.add_edge("web_search", "generate_response")
@@ -241,6 +571,7 @@ def build_graph():
     
     return workflow
 
+# --- Initialize Graph & Memory ---
 workflow = build_graph()
 
 memory = MemorySaver()
