@@ -1,18 +1,16 @@
-<div align="center">
-  <h1>🎬 MoodFlixx - AI Movie Recommendation System</h1>
-  <p><i>Discover your next favorite movie through the power of conversation</i></p>
-  <div align="center">
-  <p>
-    <img src="https://img.shields.io/badge/LangChain-0.1.0-green" alt="LangChain">
-    <img src="https://img.shields.io/badge/LangGraph-0.0.26-blue" alt="LangGraph">
-    <img src="https://img.shields.io/badge/LLM-Llama3--70B-purple" alt="Llama3">
-    <img src="https://img.shields.io/badge/TensorFlow-2.x-orange" alt="TensorFlow">
-    <img src="https://img.shields.io/badge/TensorFlow--Recommenders-0.7.4-lightblue" alt="TensorFlow Recommenders">
-    <img src="https://img.shields.io/badge/OpenCV-4.x-blue" alt="OpenCV">
-    <img src="https://img.shields.io/badge/FFEM-latest-red" alt="FFEM">
-    <img src="https://img.shields.io/badge/License-MIT-yellow" alt="License">
-  </p>
-</div>
+# 🎬 MoodFlixx - AI Movie Recommendation System
+
+*Discover your next favorite movie through the power of conversation*
+
+![LangChain](https://img.shields.io/badge/LangChain-0.1.0-green)
+![LangGraph](https://img.shields.io/badge/LangGraph-0.0.26-blue)
+![Llama3](https://img.shields.io/badge/LLM-Llama3--70B-purple)
+![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-orange)
+![TensorFlow Recommenders](https://img.shields.io/badge/TensorFlow--Recommenders-0.7.4-lightblue)
+![OpenCV](https://img.shields.io/badge/OpenCV-4.x-blue)
+![FFEM](https://img.shields.io/badge/FFEM-latest-red)
+![License](https://img.shields.io/badge/License-MIT-yellow)
+
 ---
 
 ## ✨ Features
@@ -40,22 +38,22 @@
 
 ### 🧠 Backend Components
 
-- 🧩 *LangGraph Conversation Flow*: Dynamic preference-gathering conversation with branching paths
-- 🔍 *Vector Database*: FAISS for semantic similarity search across thousands of movies
-- 📚 *RAG System*: Combines movie database with web search for comprehensive knowledge
-- 🔎 *Web Search*: Tavily API integration for supplemental movie information
-- 🤖 *LLM Integration*: Powered by Groq's Llama-3 70B model for natural conversations
+- 🧩 **LangGraph Conversation Flow**: Dynamic preference-gathering conversation with branching paths
+- 🔍 **Vector Database**: FAISS for semantic similarity search across thousands of movies
+- 📚 **RAG System**: Combines movie database with web search for comprehensive knowledge
+- 🔎 **Web Search**: Tavily API integration for supplemental movie information
+- 🤖 **LLM Integration**: Powered by Groq's Llama-3 70B model for natural conversations
 
 </td>
 <td width="50%">
 
 ### 🎨 Frontend Components
 
-- 📱 *Responsive UI*: Adapts beautifully to any device size
-- 💬 *Real-Time Chat Widget*: Interactive chatbot with message history
-- 🎤 *Voice Input Support*: Speech recognition for hands-free interaction
-- 🎞 *Movie Card Display*: Visual browsing experience with rich metadata
-- 🌐 *Progressive Web App*: Works across all modern browsers
+- 📱 **Responsive UI**: Adapts beautifully to any device size
+- 💬 **Real-Time Chat Widget**: Interactive chatbot with message history
+- 🎤 **Voice Input Support**: Speech recognition for hands-free interaction
+- 🎞️ **Movie Card Display**: Visual browsing experience with rich metadata
+- 🌐 **Progressive Web App**: Works across all modern browsers
 
 </td>
 </tr>
@@ -150,9 +148,7 @@ python agent3.py
 
 ## 🔍 How It Works
 
-<div align="center">
-  <img src="workflow_graph.png" alt="MoodFlixx Conversation Workflow Graph" width="80%">
-</div>
+![MoodFlixx Conversation Workflow Graph](workflow_graph.png)
 
 ### Conversation Flow Graph Explained
 
