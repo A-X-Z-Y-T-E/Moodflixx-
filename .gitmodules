@@ -1,0 +1,3 @@
+[submodule "frontend/frontend"]
+	path = frontend/frontend
+	url = https://github.com/abhitiwari007/django-netflix-clone-main.git
